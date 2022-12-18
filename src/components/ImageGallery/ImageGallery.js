@@ -2,7 +2,7 @@ import { ImageGalleryItem } from 'components/ImageGalleryItem/ImageGalleryItem';
 import css from './ImageGallery.module.css';
 import styles from '../ImageGalleryItem/ImageGalleryItem.module.css';
 
-export const ImageGallery = ({ pictures, onSelectPicture }) => {
+export const ImageGallery = ({ pictures, onSelectPicture, cardRef }) => {
   return (
     <>
       {pictures.length > 0 && <ul className={css.ImageGallery}>

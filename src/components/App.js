@@ -1,4 +1,4 @@
-import { Component } from "react";
+import { useState, useEffect } from "react";
 import { ImageGallery } from "./ImageGallery/ImageGallery";
 import { SearchForm } from "./SearchForm/SearchForm";
 import { Button } from 'components/Button/Button';
@@ -7,67 +7,60 @@ import { getPicturesByApi } from '../service/getPicturesByApi';
 import { Notify } from "notiflix";
 import { Spinner } from "./Spinner/Spinner";
 
-export class App extends Component {
-  state = {
-    searchQuery: '',
-    pictures: [],
-    page: 1,
-    loading: false,
-    error: null,
-    selectedPicture: null,
-    showLoadMore: false
+export const App = () => {
+  const [searchQuery, setSearchQuery] = useState('')
+  const [pictures, setPictures] = useState([])
+  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [selectedPicture, setSelectedPicture] = useState(null)
+  const [showLoadMore, setShowLoadMore] = useState(false)
+
+  const handleFormSubmit = searchQuery => {
+    setSearchQuery(searchQuery)
+    setPictures([])
+    setPage(1)
   };
 
-  handleFormSubmit = searchQuery => {
-    this.setState({ searchQuery, pictures: [], page: 1 });
-  };
+  useEffect(() => {
+    if (!searchQuery) return;
 
-  componentDidUpdate = (_, prevState) => {
-    const { searchQuery, page } = this.state;
+    setLoading(true)
 
-    if (prevState.searchQuery !== searchQuery || prevState.page !== page) {
-      this.setState({ loading: true });
+    getPicturesByApi(searchQuery, page)
+      .then(pictures => {
+        if (pictures.data.hits.length === 0) Notify.warning('Please enter valid search query');
 
-      getPicturesByApi(searchQuery, page)
-        .then(pictures => {
-          if (pictures.data.hits.length === 0)
-            Notify.warning('Please enter valid search query');
-          
-          if (pictures.data.totalHits > 12 && page < Math.ceil(pictures.data.totalHits / 12)) this.setState({ showLoadMore: true })
-          else { this.setState({ showLoadMore: false }) }
+        if (pictures.data.totalHits > 12 && page < Math.ceil(pictures.data.totalHits / 12)) setShowLoadMore(true);
+        else {
+          Notify.info("We're sorry, but you've reached the end of search results.");
+          setShowLoadMore(false)
+        };
 
-          if (prevState.searchQuery !== searchQuery) this.setState({ pictures: [...pictures.data.hits] })
-          else this.setState({ pictures: [...prevState.pictures, ...pictures.data.hits] });
-        })
-        .catch(error => this.setState({ error }))
-        .finally(() => this.setState({loading: false}));
-    }
-  };
+        page === 1 && Notify.success(`Hooray, we found ${pictures.data.totalHits} pictures that matches query "${searchQuery}"`);
+        setPictures(prevPictures => [...prevPictures, ...pictures.data.hits]);
+      })
+      .catch(error => setError(error))
+      .finally(() => setLoading(false));
+  }, [page, searchQuery])
+  
 
-  handleButtonClick = () => {
-    this.setState(prevState => ({ page: prevState.page + 1 }));
-  };
+  const loadMore = () => setPage(page => page + 1)
 
-  onSelectPicture = pictureUrl => {
-    this.setState({ selectedPicture: pictureUrl });
-  };
+  const onSelectPicture = pictureUrl => setSelectedPicture(pictureUrl)
 
-  closeModal = () => {
-    this.setState({ selectedPicture: null });
-  };
-
-  render() {
-    const { pictures, error, loading, selectedPicture, showLoadMore } = this.state;
+  const closeModal = () => setSelectedPicture(null)
 
     return (
       <>
-        <SearchForm onSubmit={this.handleFormSubmit} />
+        <SearchForm onSubmit={handleFormSubmit} />
         {error && <h1>Oops, {error.message}. Please reload the page</h1>}
         {loading && <Spinner/>}
-        <ImageGallery pictures={pictures} onSelectPicture={this.onSelectPicture} />
-        {showLoadMore && <Button onLoadMore={this.handleButtonClick} />}
-        {selectedPicture && <Modal src={selectedPicture} closeModal={this.closeModal}/>}
+        <ImageGallery pictures={pictures} onSelectPicture={onSelectPicture} />
+        {showLoadMore && <Button onLoadMore={loadMore} />}
+        {selectedPicture && <Modal src={selectedPicture} closeModal={closeModal}/>}
       </>
     );
-  }
-};
+}
+
+
